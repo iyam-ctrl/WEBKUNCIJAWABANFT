@@ -45,27 +45,59 @@ if(!mod){line.classList.add('error');line.textContent+=' · lewati, nama file ti
 try{const buffer=await file.arrayBuffer();const wb=XLSX.read(buffer,{type:'array'});const sheet=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});const batch=[];for(let i=0;i<rows.length;i++){const q=String(rows[i]?.[0]??'').trim(),a=String(rows[i]?.[1]??'').trim();if(!q||!a||isHeaderRecord(q,a))continue;const nq=norm(q);const dedupeKey=norm(mod.name)+'|'+nq+'|'+norm(a);if(seen.has(dedupeKey))continue;seen.add(dedupeKey);batch.push({module:mod.name,day:mod.day,part:mod.part,question:q,answer:a,normalized:nq})}for(let start=0;start<batch.length;start+=1000)await putMany(batch.slice(start,start+1000));total+=batch.length;line.classList.add('success');line.textContent=file.name+' · '+batch.length.toLocaleString('id-ID')+' soal baru ditambahkan'}catch(e){line.classList.add('error');line.textContent=file.name+' · gagal dibaca: '+e.message}next()};next()}
 function tokens(s){return norm(s).split(' ').filter(x=>x.length>1)}
 function sim(a,b){const A=norm(a),B=norm(b);if(!A||!B)return 0;if(A===B)return 1;if(A.includes(B)||B.includes(A))return .985;const aa=tokens(A),bb=tokens(B),as=new Set(aa),bs=new Set(bb);let hit=0;as.forEach(t=>{if(bs.has(t))hit++});const jac=hit/Math.max(1,as.size+bs.size-hit),cover=hit/Math.max(1,Math.min(as.size,bs.size));let prefix=0;for(let i=0;i<Math.min(A.length,B.length);i++){if(A[i]===B[i])prefix++;else break}const char=prefix/Math.max(A.length,B.length);return Math.max(jac,cover*.83,char*.35)}
-function search(q){const cross=$('crossSearch').checked;const scope=records.filter(r=>(cross||r.module===MODULES[selected].name)&&!isHeaderRecord(r.question,r.answer));const parsed=splitQuestion(q);return scope.map(r=>{const src=sourceQuestion(r);const questionScore=sim(parsed.question,src.question);const optionScore=parsed.options.length&&src.options.length?Math.max(...parsed.options.map(o=>Math.max(...src.options.map(s=>sim(o,s))))):0;const score=questionScore===1?1:Math.max(questionScore,optionScore*.88);return {r,parsed:src,score,exact:questionScore===1}}).sort((a,b)=>Number(b.exact)-Number(a.exact)||b.score-a.score)}
+function search(q){
+ const cross=$('crossSearch').checked;
+ const includeAnswers=$('searchAnswers')?.checked||false;
+ const scope=records.filter(r=>(cross||r.module===MODULES[selected].name)&&!isHeaderRecord(r.question,r.answer));
+ const parsed=splitQuestion(q);
+ return scope.map(r=>{
+  const src=sourceQuestion(r);
+  const questionScore=sim(parsed.question,src.question);
+  const optionScore=parsed.options.length&&src.options.length?Math.max(...parsed.options.map(o=>Math.max(...src.options.map(s=>sim(o,s))))):0;
+  const answerScore=includeAnswers?sim(q,r.answer):0;
+  const score=questionScore===1?1:Math.max(questionScore,optionScore*.88,answerScore*.82);
+  return {r,parsed:src,score,exact:questionScore===1,answerMatch:includeAnswers&&answerScore>Math.max(questionScore,optionScore*.88)};
+ }).filter(x=>x.score>=.15).sort((a,b)=>Number(b.exact)-Number(a.exact)||b.score-a.score);
+}
+function highlightText(value,query){
+ let output=esc(value);
+ const terms=[...new Set((String(query).match(/[\\p{L}\\p{N}]{2,}/gu)||[]).sort((a,b)=>b.length-a.length))];
+ for(const term of terms){
+  const safe=term.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\$&');
+  output=output.replace(new RegExp('('+safe+')','gi'),'<mark>$1</mark>');
+ }
+ return output;
+}
+function renderResultCard(item,index,query){
+ const {r,parsed,score,exact,answerMatch}=item;
+ const pct=Math.round(score*100);
+ return '<article class="result-card'+(index===0?' best-result':'')+'">'+
+  '<div class="result-card-top"><span class="result-index">'+String(index+1).padStart(2,'0')+'</span><span class="result-module">'+esc(r.module)+' · Day '+r.day+' / Part '+r.part+'</span><span class="result-percent">'+pct+'% cocok</span></div>'+
+  '<div class="qa-heading">SOAL</div><div class="result-question">'+highlightText(parsed.question,query)+'</div>'+
+  (parsed.options.length?'<div class="qa-heading result-options-title">PILIHAN JAWABAN</div><ol class="result-options">'+parsed.options.map(o=>'<li>'+highlightText(o,query)+'</li>').join('')+'</ol>':'')+
+  '<div class="result-answer-wrap"><div class="qa-heading">JAWABAN BENAR</div><div class="result-answer">'+highlightText(r.answer,query)+'</div><button class="copy-answer" type="button" data-copy="'+encodeURIComponent(r.answer)+'">Salin jawaban</button></div>'+
+  (answerMatch?'<div class="match-note">Kata kunci ditemukan pada bagian jawaban</div>':'')+
+  '</article>';
+}
 function closeSidebar(){$('sidebar').classList.remove('open');document.body.classList.remove('sidebar-open')}
 function openSidebar(){$('sidebar').classList.add('open');document.body.classList.add('sidebar-open')}
 function addMessage(role,html){const el=document.createElement('article');el.className='message '+role;el.innerHTML=html;$('chatArea').append(el);el.scrollIntoView({behavior:'smooth',block:'end'})}
 function answer(q){
- addMessage('user','<div class="message-text">'+esc(q).replace(/\\n/g,'<br>')+'</div>');
- if(!records.length){addMessage('assistant','<div class="answer-label">MATERI BELUM TERSEDIA</div><p>impor sembilan file materi melalui menu <b>Impor materi Excel</b> terlebih dahulu.</p>');return}
+ $('welcome').hidden=true;
+ $('chatArea').innerHTML='';
  const ranked=search(q);
- if(!ranked.length||ranked[0].score<.13){addMessage('assistant','<div class="answer-label">BELUM ADA HASIL YANG COCOK</div><p>belum ditemukan soal dan jawaban yang cukup mirip di modul terpilih. coba aktifkan pencarian semua modul.</p>');return}
- const best=ranked[0],pct=Math.round(best.score*100);
- let html='<div class="answer-label">HASIL SOAL & JAWABAN</div><div class="similarity-line"><span>Skor kemiripan</span><strong>'+pct+'%</strong></div><div class="similarity-track"><span style="width:'+pct+'%"></span></div>'+
- '<section class="qa-block"><div class="qa-heading">SOAL YANG LU KIRIM</div><div class="qa-content">'+esc(q).replace(/\\n/g,'<br>')+'</div></section>'+
- '<section class="qa-block answer-block"><div class="qa-heading">SOAL YANG PALING MIRIP DI MATERI</div><div class="qa-content">'+esc(best.parsed.question)+'</div>'+renderOptions(best.parsed.options)+'<div class="qa-heading answer-heading">JAWABAN BENAR</div><div class="qa-content answer-text">'+esc(best.r.answer)+'</div></section>'+
- '<div class="result-meta">'+esc(best.r.module)+' · Day '+best.r.day+' / Part '+best.r.part+'</div>';
- const similar=ranked.filter(x=>sim(x.r.question,best.r.question)>=.88);
- const answers=[...new Set(similar.map(x=>norm(x.r.answer)))];
- if(answers.length>1)html+='<div class="conflict-warning"><b>⚠ jawaban berbeda ditemukan</b><p>ada beberapa soal yang mirip, tetapi isi jawabannya berbeda. bandingkan hasil di bawah ini.</p></div>';
- if(ranked.length>1)html+='<div class="other-heading">SOAL & JAWABAN LAIN YANG MIRIP</div><div class="other-results">'+ranked.slice(1,7).map(x=>'<div class="other-result"><div class="other-score">Kemiripan '+Math.round(x.score*100)+'%</div><div class="qa-heading">SOAL</div><p class="other-question">'+esc(x.parsed.question)+'</p>'+renderOptions(x.parsed.options)+'<div class="qa-heading">JAWABAN BENAR</div><b class="other-answer">'+esc(x.r.answer)+'</b><span class="other-module">'+esc(x.r.module)+' · Day '+x.r.day+' / Part '+x.r.part+'</span></div>').join('')+'</div>';
- addMessage('assistant',html);
+ if(!ranked.length){
+  addMessage('assistant','<div class="empty-results"><div class="empty-icon">⌕</div><b>belum ada hasil yang cocok</b><p>coba gunakan kata kunci lain, aktifkan pencarian semua modul, atau cari juga di bagian jawaban.</p></div>');
+  return;
+ }
+ const exactCount=ranked.filter(x=>x.exact).length;
+ const countLabel=ranked.length.toLocaleString('id-ID')+' hasil ditemukan';
+ const summary='<div class="results-summary"><div><span class="eyebrow">HASIL PENCARIAN</span><h2>'+countLabel+'</h2><p>'+ (exactCount?exactCount.toLocaleString('id-ID')+' soal cocok 100%':'belum ada soal yang identik') +'</p></div><span class="results-query">'+esc(q).slice(0,90)+'</span></div>';
+ $('chatArea').innerHTML=summary+ranked.slice(0,30).map((item,i)=>renderResultCard(item,i,q)).join('');
 }
 $('questionForm').addEventListener('submit',e=>{e.preventDefault();const q=$('questionInput').value.trim();if(!q)return;answer(q);$('questionInput').value='';$('questionInput').focus()});
+$('chatArea').addEventListener('click',async e=>{const button=e.target.closest('[data-copy]');if(!button)return;const value=decodeURIComponent(button.dataset.copy||'');try{await navigator.clipboard.writeText(value);button.textContent='Tersalin ✓';toast('Jawaban berhasil disalin')}catch{const area=document.createElement('textarea');area.value=value;document.body.append(area);area.select();document.execCommand('copy');area.remove();button.textContent='Tersalin ✓';toast('Jawaban berhasil disalin')}});
+
 $('questionInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('questionForm').requestSubmit()}});
 $('daySelect').addEventListener('change',()=>{const d=Number($('daySelect').value);selected=MODULES.findIndex(m=>m.day===d);syncSelectors();renderNav();updateHeader()});
 $('partSelect').addEventListener('change',()=>{const p=Number($('partSelect').value);const d=Number($('daySelect').value);const i=MODULES.findIndex(m=>m.day===d&&m.part===p);if(i>=0)selected=i;renderNav();updateHeader()});
@@ -87,6 +119,6 @@ document.addEventListener('pointerdown',e=>{
  if(!sidebar.contains(e.target)&&!menuButton.contains(e.target))closeSidebar();
 },true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSidebar()});
-$('homeButton').onclick=()=>{$('chatArea').innerHTML='';$('welcome').hidden=false;$('questionInput').focus()};
+$('homeButton').onclick=()=>{$('chatArea').innerHTML='';$('welcome').hidden=false;$('questionInput').focus();closeSidebar()};
 (async()=>{db=await openDB();records=await allRecords();renderNav();syncSelectors();updateHeader();updateStats();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});})();
 })();
