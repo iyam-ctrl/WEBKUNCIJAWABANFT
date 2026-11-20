@@ -1,4 +1,4 @@
-const CACHE='webkunci-ft-v4';
+const CACHE='webkunci-ft-v5';
 const ASSETS=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./icon.svg'];
 
 self.addEventListener('install',event=>{
