@@ -34,7 +34,12 @@ function syncSelectors(){$('daySelect').value=String(MODULES[selected].day);$('p
 function updateHeader(){const m=MODULES[selected];$('crumb').textContent='DAY '+m.day+' · PART '+m.part;$('activeTitle').textContent='Modul '+(selected+1)+' · '+m.name;const count=records.filter(r=>r.module===m.name).length;$('moduleCount').textContent=count.toLocaleString('id-ID')+' soal di modul ini'}
 function updateStats(){$('storageStatus').textContent=records.length.toLocaleString('id-ID')+' soal tersimpan';$('moduleCount').textContent=records.filter(r=>r.module===MODULES[selected].name).length.toLocaleString('id-ID')+' soal di modul ini'}
 function splitQuestion(raw){const s=String(raw||'').trim();const i=s.indexOf(':');if(i<0)return {question:s,options:[]};return {question:s.slice(0,i).trim(),options:s.slice(i+1).split(';').map(x=>x.trim()).filter(Boolean)}}
-function isHeaderRecord(q,a){const question=norm(q),answer=norm(a);return /^(question|pertanyaan)(\\s+\\d+)?$/.test(question)||/^(right answer|rightanswer|jawaban)(\\s+\\d+)?$/.test(answer)||/^(right answer|rightanswer|jawaban)(\\s+\\d+)?$/.test(question)||/^(question|pertanyaan)(\\s+\\d+)?$/.test(answer)}
+function isHeaderRecord(q,a){
+ const question=norm(q),answer=norm(a);
+ const questionLabel=/^(question|pertanyaan)(\s+\d+)?$/i;
+ const answerLabel=/^(right answer|rightanswer|jawaban)(\s+\d+)?$/i;
+ return questionLabel.test(question)||answerLabel.test(answer)||answerLabel.test(question)||questionLabel.test(answer);
+}
 function sourceQuestion(r){return splitQuestion(r.question||'')}
 function renderOptions(options){if(!options.length)return '';return '<div class="qa-heading options-heading">PILIHAN JAWABAN</div><ol class="answer-options">'+options.map(o=>'<li>'+esc(o)+'</li>').join('')+'</ol>'}
 function detectModule(filename){const f=norm(filename).toUpperCase();return MODULES.find(m=>m.keys.some(k=>f.includes(norm(k).toUpperCase())))}
@@ -60,13 +65,20 @@ function search(q){
  }).filter(x=>x.score>=.15).sort((a,b)=>Number(b.exact)-Number(a.exact)||b.score-a.score);
 }
 function highlightText(value,query){
- let output=esc(value);
- const terms=[...new Set((String(query).match(/[\\p{L}\\p{N}]{2,}/gu)||[]).sort((a,b)=>b.length-a.length))];
- for(const term of terms){
-  const safe=term.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\$&');
-  output=output.replace(new RegExp('('+safe+')','gi'),'<mark>$1</mark>');
+ const source=String(value??'');
+ const terms=[...new Set(String(query).split(/\s+/).filter(term=>term.length>=2))].sort((a,b)=>b.length-a.length);
+ const pieces=[];let cursor=0;
+ while(cursor<source.length){
+  let found=-1,matched='';
+  for(const term of terms){
+   const at=source.toLowerCase().indexOf(term.toLowerCase(),cursor);
+   if(at>=0&&(found<0||at<found)){found=at;matched=source.slice(at,at+term.length);}
+  }
+  if(found<0){pieces.push(esc(source.slice(cursor)));break;}
+  pieces.push(esc(source.slice(cursor,found)),'<mark>'+esc(matched)+'</mark>');
+  cursor=found+matched.length;
  }
- return output;
+ return pieces.join('');
 }
 function renderResultCard(item,index,query){
  const {r,parsed,score,exact,answerMatch}=item;
