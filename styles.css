@@ -89,3 +89,23 @@ mark{background:#fff0a8;color:#554300;border-radius:3px;padding:0 2px}
 .modal.notice-only .modal-head .icon-button{position:absolute;right:calc(50% - min(210px,50%) + 13px);top:calc(50% - 62px)}
 .modal.notice-only>p{font-size:14px;line-height:1.65;font-weight:750;color:var(--ink);margin:18px 4px 8px}
 .modal.notice-only .progress-track,.modal.notice-only .import-log,.modal.notice-only #confirmImport{display:none}
+
+/* Mobile focus: prevent iOS Safari auto-zoom and keep layouts inside the viewport */
+html{width:100%;min-width:0;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body,.app-shell,.main-panel{min-width:0;max-width:100%;width:100%}
+.main-panel{flex:1 1 0}
+.composer-wrap,.results-area,.welcome{min-width:0;max-width:100%;box-sizing:border-box}
+.composer textarea{font-size:16px}
+@media(max-width:800px){
+ html,body{overflow-x:hidden}
+ .app-shell{min-height:100svh}
+ .main-panel{min-height:100svh}
+}
+@media(max-width:650px){
+ .composer textarea{font-size:16px!important;line-height:1.5;min-height:84px;max-height:34svh;resize:vertical}
+ .composer{width:100%;max-width:100%}
+ .composer-wrap{width:calc(100% - 22px);padding-left:0;padding-right:0}
+ .results-area{width:calc(100% - 22px)}
+ .topbar,.topbar-right{min-width:0}
+ input,select,textarea{max-width:100%;font-size:16px}
+}
