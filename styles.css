@@ -82,3 +82,10 @@ mark{background:#fff0a8;color:#554300;border-radius:3px;padding:0 2px}
  .result-question{font-size:14px}.result-answer{font-size:15px}
  .result-answer-wrap{padding:12px}
 }
+
+.modal.notice-only{width:min(420px,100%);text-align:center;padding:25px 22px}
+.modal.notice-only .modal-head{justify-content:center}
+.modal.notice-only .modal-head h2{font-size:18px}
+.modal.notice-only .modal-head .icon-button{position:absolute;right:calc(50% - min(210px,50%) + 13px);top:calc(50% - 62px)}
+.modal.notice-only>p{font-size:14px;line-height:1.65;font-weight:750;color:var(--ink);margin:18px 4px 8px}
+.modal.notice-only .progress-track,.modal.notice-only .import-log,.modal.notice-only #confirmImport{display:none}
