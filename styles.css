@@ -18,3 +18,9 @@
 body.sidebar-open .sidebar-scrim{display:block}.sidebar-close{display:grid;place-items:center;position:absolute;right:14px;top:19px;z-index:2;background:var(--bg)}
 .brand{padding-right:48px}.qa-content{font-size:14px}.answer-text{font-size:17px}
 }
+/* Ensure outside area reliably receives taps while mobile menu is open */
+@media(max-width:650px){
+ .sidebar.open{z-index:10001;transform:translateX(0)}
+ .sidebar-scrim{z-index:10000;touch-action:manipulation}
+ body.sidebar-open .sidebar-scrim{display:block;pointer-events:auto}
+}
