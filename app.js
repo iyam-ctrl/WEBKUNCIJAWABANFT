@@ -77,6 +77,12 @@ $('themeButton').onclick=()=>{document.body.classList.toggle('dark');localStorag
 if(localStorage.getItem('wk-theme')==='dark')document.body.classList.add('dark');
 $('menuButton').onclick=()=>document.body.classList.contains('sidebar-open')?closeSidebar():openSidebar();
 $('sidebarClose').onclick=closeSidebar;$('sidebarScrim').onclick=closeSidebar;
+// Tutup menu setiap kali pengguna menyentuh area di luar sidebar.
+document.addEventListener('pointerdown',e=>{
+ if(!document.body.classList.contains('sidebar-open'))return;
+ const sidebar=$('sidebar'),menuButton=$('menuButton');
+ if(!sidebar.contains(e.target)&&!menuButton.contains(e.target))closeSidebar();
+},true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSidebar()});
 $('homeButton').onclick=()=>{$('chatArea').innerHTML='';$('welcome').hidden=false;$('questionInput').focus()};
 (async()=>{db=await openDB();records=await allRecords();renderNav();syncSelectors();updateHeader();updateStats();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});})();
