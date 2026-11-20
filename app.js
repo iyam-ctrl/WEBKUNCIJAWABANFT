@@ -62,7 +62,7 @@ function search(q){
   const answerScore=includeAnswers?sim(q,r.answer):0;
   const score=questionScore===1?1:Math.max(questionScore,optionScore*.88,answerScore*.82);
   return {r,parsed:src,score,exact:questionScore===1,answerMatch:includeAnswers&&answerScore>Math.max(questionScore,optionScore*.88)};
- }).filter(x=>x.score>=.15).sort((a,b)=>Number(b.exact)-Number(a.exact)||b.score-a.score);
+ }).filter(x=>x.score>=.45).sort((a,b)=>Number(b.exact)-Number(a.exact)||b.score-a.score);
 }
 function highlightText(value,query){
  const source=String(value??'');
@@ -94,12 +94,20 @@ function renderResultCard(item,index,query){
 function closeSidebar(){$('sidebar').classList.remove('open');document.body.classList.remove('sidebar-open')}
 function openSidebar(){$('sidebar').classList.add('open');document.body.classList.add('sidebar-open')}
 function addMessage(role,html){const el=document.createElement('article');el.className='message '+role;el.innerHTML=html;$('chatArea').append(el);el.scrollIntoView({behavior:'smooth',block:'end'})}
+function showNoResultsNotice(){
+ const modal=$('modalBackdrop').querySelector('.modal');
+ modal.classList.add('notice-only');
+ $('modalTitle').textContent='Pencarian tidak ditemukan';
+ $('modalText').textContent='tidak ada soal dan jawaban yang anda cari di dalam modul apk ini';
+ $('confirmImport').hidden=true;
+ $('modalBackdrop').hidden=false;
+}
 function answer(q){
  $('welcome').hidden=true;
  $('chatArea').innerHTML='';
  const ranked=search(q);
  if(!ranked.length){
-  addMessage('assistant','<div class="empty-results"><div class="empty-icon">⌕</div><b>belum ada hasil yang cocok</b><p>coba gunakan kata kunci lain, aktifkan pencarian semua modul, atau cari juga di bagian jawaban.</p></div>');
+  showNoResultsNotice();
   return;
  }
  const exactCount=ranked.filter(x=>x.exact).length;
@@ -113,10 +121,10 @@ $('chatArea').addEventListener('click',async e=>{const button=e.target.closest('
 $('questionInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('questionForm').requestSubmit()}});
 $('daySelect').addEventListener('change',()=>{const d=Number($('daySelect').value);selected=MODULES.findIndex(m=>m.day===d);syncSelectors();renderNav();updateHeader()});
 $('partSelect').addEventListener('change',()=>{const p=Number($('partSelect').value);const d=Number($('daySelect').value);const i=MODULES.findIndex(m=>m.day===d&&m.part===p);if(i>=0)selected=i;renderNav();updateHeader()});
-$('importButton').onclick=()=>{$('modalBackdrop').hidden=false;$('modalTitle').textContent='Impor materi Excel';$('modalText').textContent='Pilih sembilan file sumber. Nama file akan dipetakan otomatis ke modul yang sesuai.';$('confirmImport').textContent='Pilih file Excel';$('confirmImport').disabled=false;$('importLog').innerHTML=''};
+$('importButton').onclick=()=>{$('modalBackdrop').querySelector('.modal').classList.remove('notice-only');$('confirmImport').hidden=false;$('modalBackdrop').hidden=false;$('modalTitle').textContent='Impor materi Excel';$('modalText').textContent='Pilih sembilan file sumber. Nama file akan dipetakan otomatis ke modul yang sesuai.';$('confirmImport').textContent='Pilih file Excel';$('confirmImport').disabled=false;$('importLog').innerHTML=''};
 $('confirmImport').onclick=()=>{if($('confirmImport').textContent==='Selesai'){$('modalBackdrop').hidden=true;$('confirmImport').textContent='Pilih file Excel';return}$('excelInput').click()};
 $('excelInput').onchange=e=>{importFiles(e.target.files);e.target.value=''};
-$('closeModal').onclick=()=>{$('modalBackdrop').hidden=true};
+$('closeModal').onclick=()=>{$('modalBackdrop').hidden=true;$('modalBackdrop').querySelector('.modal').classList.remove('notice-only');$('confirmImport').hidden=false};
 $('backupButton').onclick=()=>{const blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),records})],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='webkunci-backup.json';a.click();URL.revokeObjectURL(a.href);toast('Cadangan berhasil dibuat')};
 $('restoreButton').onclick=()=>$('backupInput').click();
 $('backupInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const data=JSON.parse(await f.text());if(!Array.isArray(data.records))throw Error('format cadangan tidak valid');await clearDB();await putMany(data.records.map(({id,...r})=>r));records=await allRecords();updateStats();renderNav();toast('Cadangan berhasil dipulihkan')}catch(err){toast('Gagal memulihkan: '+err.message)}e.target.value=''};
